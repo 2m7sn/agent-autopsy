@@ -1,6 +1,6 @@
 # Agent Autopsy Lab
 
-**Your agent failed. This finds out why, repairs it, and proves the repair works on tasks it never saw.**
+**Your agent failed. This finds out why, repairs it, and proves the repair works on tasks it never saw. Then it sends attackers to break it again.**
 
 Most agent failures aren't the model being dumb. They come from the instructions around it: a tool description that doesn't say the unit is cents, a policy that lives in someone's head and not in the prompt, no rule about when to hand off to a human. Agent Autopsy Lab finds those gaps automatically and closes them.
 
@@ -20,6 +20,7 @@ Runner ──► Coroner ──► Surgeon ──► Arena ──┐
 | **Coroner** | Groups failures into *causes of death* (units, policy, escalation, scope, loops…) and explains each root cause in the prompt or tool docs |
 | **Surgeon** | Writes 3 competing repairs with different strategies, as general rules, never naming specific tickets |
 | **Arena** | Scores each repair on the training tasks. The best one becomes the parent of the next generation. The lab stops when failures hit zero or a generation fails to improve |
+| **Red team** *(optional)* | Attacker agents write new hostile tickets every generation, aimed at the current patched agent |
 | **Holdout** | Scores the original agent and the evolved agent on tickets the lab never saw, so the gain is a real improvement and not memorised answers |
 
 ![report](docs/report.png)
@@ -41,6 +42,20 @@ python -m autopsy --gens 3 --runs 3
 ```
 
 Each run writes `runs/<timestamp>/report.html`, `best_spec.json` (the repaired agent, ready to ship) and `results.json` (every trace).
+
+## Red team mode
+
+```bash
+python -m autopsy --mock --redteam
+```
+
+Attacker agents join the loop and write hostile tickets, such as fake staff authority, fake `[SYSTEM OVERRIDE]` text, requests on other customers' orders, emotional pressure and legal threats. The surgeon hardens the agent. Then the attackers **strike again at the patched agent**, with fresh attacks every generation (in live mode they can read its current system prompt).
+
+- The attacker writes only the message. Each attack's correct outcome is fixed by its goal, so the grader never trusts the attacker.
+- The holdout exam uses **attack styles the lab never trained on**, which measures whether the agent's defense generalises instead of memorising the training attacks.
+- The report tracks two numbers: attacks resisted, and normal tickets still solved. The second one catches a hardening that breaks real work.
+
+![red team report](docs/redteam.png)
 
 ## The patient: ShopDesk
 

@@ -17,7 +17,7 @@ code,pre{font:12.5px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}pre{marg
 .tag{display:inline-block;padding:2px 8px;border-radius:99px;background:#2a1618;color:var(--bad);font:12px ui-monospace,monospace}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:720px){.two{grid-template-columns:1fr}}
 .step{padding:6px 0;border-bottom:1px dashed var(--line)}.fail{color:var(--bad)}.pass{color:var(--good)}
-.add{background:#0f2a1f;color:var(--good)}.del{background:#2a1618;color:var(--bad)}svg text{fill:var(--mute);font:11px ui-monospace,monospace}
+blockquote{margin:12px 0;padding:8px 12px;border-left:3px solid var(--acc);white-space:pre-wrap}.add{background:#0f2a1f;color:var(--good)}.del{background:#2a1618;color:var(--bad)}svg text{fill:var(--mute);font:11px ui-monospace,monospace}
 """
 
 
@@ -39,7 +39,7 @@ def _chart(history):
 
 
 def _trace(t):
-    rows = "".join(f'<div class="step"><code>{escape(s["tool"])}({escape(json.dumps(s["input"]))})</code>'
+    rows = f'<blockquote class="sub">{escape(t["msg"])}</blockquote>' + "".join(f'<div class="step"><code>{escape(s["tool"])}({escape(json.dumps(s["input"]))})</code>'
                    f'<br><code class="sub">→ {escape(json.dumps(s["output"], default=str)[:160])}</code></div>'
                    for s in t["steps"])
     verdict = ("".join(f'<div class="fail">✗ {escape(f)}</div>' for f in t["fails"])
@@ -64,17 +64,21 @@ def render(res, mode):
     causes = "".join(f'<tr><td><span class="tag">{escape(d["category"])}</span></td><td>{d["count"]}</td>'
                      f'<td>{escape(d["root_cause"])}</td><td>{escape(d["fix"])}</td></tr>' for d in res["diagnosis"])
     sample = res["sample"]
-    trace = (f'<p class="sub">Holdout ticket <code>{sample["before"]["task"]}</code>, same model, same ticket.</p>'
+    trace = (f'<p class="sub">Holdout ticket <code>{sample["before"]["task"]}</code>, same model, same ticket{" (attack style never seen in training)" if sample["before"]["task"].startswith("x") else ""}.</p>'
              f'<div class="two"><div class="card"><b class="fail">Before</b>{_trace(sample["before"])}</div>'
              f'<div class="card"><b class="pass">After</b>{_trace(sample["after"])}</div></div>') if sample else ""
-    num = lambda k, label: (f'<div class="card"><div class="big"><span class="from">{res[k]["before"]:.0%}</span>'
-                            f' → <span class="to">{res[k]["after"]:.0%}</span></div><div class="lbl">{label}</div></div>')
+    num2 = lambda v, label: (f'<div class="card"><div class="big"><span class="from">{v["before"]:.0%}</span>'
+                             f' → <span class="to">{v["after"]:.0%}</span></div><div class="lbl">{label}</div></div>')
+    num = lambda k, label: num2(res[k], label)
+    kinds = res.get("holdout_by_kind", {})
+    extra = (num2(kinds["attacks"], "resisted attacks in styles the lab never trained on")
+             + num2(kinds["tickets"], "normal holdout tickets still solved")) if "attacks" in kinds else ""
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Agent Autopsy Report</title><style>{CSS}</style></head>
 <body><main><h1>Agent Autopsy Report</h1>
 <p class="sub">{escape(b.get("name", "agent"))} · mode: {mode} · {len(res["history"]) - 1} generations · winner: <code>{escape(res["best_strategy"])}</code></p>
 <div class="grid">{num("holdout", "success on holdout tickets the lab never saw")}{num("train", "success on training tickets")}
-<div class="card"><div class="big">{len(res["diagnosis"])}</div><div class="lbl">distinct causes of death found and repaired</div></div></div>
+{extra}<div class="card"><div class="big">{len(res["diagnosis"])}</div><div class="lbl">distinct causes of death found and repaired</div></div></div>
 <h2>Evolution</h2><div class="card">{_chart(res["history"])}<p class="sub">Green = best so far. Blue = competing surgeon variants per generation.</p></div>
 <h2>Causes of death</h2><div class="card"><table><tr><th>Cause</th><th>Hits</th><th>Root cause</th><th>Fix</th></tr>{causes}</table></div>
 <h2>Same ticket, before and after</h2>{trace}

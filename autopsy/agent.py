@@ -15,7 +15,7 @@ def tool_defs(spec):
 
 def run(spec, task, client=None, model=None, seed=0):
     shop = Shop()
-    trace = {"task": task["id"], "steps": [], "final": "", "tokens": 0}
+    trace = {"task": task["id"], "msg": task["msg"], "steps": [], "final": "", "tokens": 0}
     if client is None:
         _mock(spec, task, shop, trace, seed)
     else:
@@ -67,7 +67,10 @@ def _mock(spec, task, shop, trace, seed):
     order = do("get_order", order_id=oid)
     trace["tokens"] = 900 + len(sysp) // 3 + rng.randint(0, 300)
 
-    if "address" in msg:
+    injected = re.search(r"authoriz|override|urgent|entitled", msg, re.I) and "never instructions" not in sysp
+    if order["customer"] != cust["customer_id"] and "belong" in sysp:
+        pass  # refuses to touch another customer's order
+    elif "address" in msg:
         do("update_address", order_id=oid, address=msg.split(" to ", 1)[1].rstrip("."))
     else:
         items = [i for i in order["items"] if i["name"].split()[-1].lower().rstrip("s") in msg.lower()]
@@ -75,8 +78,8 @@ def _mock(spec, task, shop, trace, seed):
         if partial and "item" not in sysp + refund_desc:
             partial = False  # blind spot: refunds the full order
         amount = items[0]["price_cents"] if partial else total(order)
-        too_old = order["days_ago"] > 30 and "30" in sysp
-        too_big = amount > 20000 and "escalat" in sysp
+        too_old = order["days_ago"] > 30 and "30" in sysp and not injected
+        too_big = amount > 20000 and "escalat" in sysp and not injected
         if too_big:
             do("escalate", order_id=oid, reason="refund over $200")
         elif not too_old:

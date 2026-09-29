@@ -10,3 +10,4 @@ jobs:
       - run: pip install -e . pytest
       - run: pytest -q
       - run: python -m autopsy --mock
+      - run: python -m autopsy --mock --redteam
