@@ -1,0 +1,14 @@
+[project]
+name = "agent-autopsy"
+version = "0.1.0"
+description = "Find out why your AI agent fails, repair it automatically, and prove the fix on tasks it never saw."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = ["anthropic>=1.0", "pydantic>=2"]
+
+[project.scripts]
+autopsy = "autopsy.__main__:main"
+
+[tool.setuptools]
+packages = ["autopsy"]
